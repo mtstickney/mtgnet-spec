@@ -1,0 +1,4 @@
+* Introduction
+  This repository hosts the official spec for the MTGNet RPC protocol,
+  and is where all drafts, proposals, and other work on the protocol
+  will happen.

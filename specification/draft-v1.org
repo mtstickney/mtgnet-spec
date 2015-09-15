@@ -1,0 +1,387 @@
+#+date: 6 December 2012
+#+author: Brad Workman and Matthew Stickney, Maineline Technology Group
+#+title: Draft MTGNet RPC Protocol Specification
+* Introduction
+  This document defines the MTGNet RPC protocol. This protocol allows
+  clients to make use of remote services in a well-define way across a
+  variety of transports. This specification describes the wire format,
+  serialization format, message contents, mandatory features, and
+  implementation semantics for the protocol.
+* Typographical conventions
+  In this specification, we represent literal values in single quotes,
+  and represent non-printing characters with the traditional backslash
+  escapes as used in =printf(1)=. Thus '\textbackslash n' is a one-character literal
+  consisting of the newline character (LF, or linefeed).
+* Terminology
+** Server
+   A /server/, as used in this specification, is a program which
+   listens on some transport medium and provided the logic and
+   processing to provide /services/ over this RPC protocol. A /server/
+   is a concrete entity.
+** Client
+   A /client/ is a program (or human) that wishes to invoke methods on
+   a /service/ hosted on a particular /server/.
+** Service
+   A /service/, unlike a /server/, is an abstract entity, not a
+   concrete one. A /service/ is /hosted/ on a /server/, and provides a
+   collection of methods, accessible over the RPC protocol, which
+   provide some package of functionality. There is typicall a
+   many-to-one relationship between /services/ and /servers/.
+
+   This specification will refer to services as being hosted on a
+   single server, but this is not a requirement. Services that are
+   hosted in a distributed fashion are permissible, provided they can
+   be accessed in a connection-oriented way consistent with the rest
+   of the protocol. For the purposes of this document, a service is
+   considered /hosted/ on a server if methods of that service may be
+   invoked directly through that server.
+** Request
+   A /request/ is a single submission to an RPC /server/. This may or
+   may not arrive in one packet (if the transport medium is
+   packet-oriented), but it is the lowest-level message specified in
+   the RPC protocol.
+** RPC Call
+   An RPC /call/ is a method invocation that expects a response. There
+   may be more than one /call/ in a given /request/ (see Section
+   \ref{batch_call}).
+** RPC Notification
+   An RPC /notification/ is a method invocation that does *not* expect
+   a response. There may be more than one /notification/ in a given
+   /request/ (see Section \ref{batch_call}).
+** Batch Call
+#<<batch_call>>
+   The term /batch call/ is used to refer to a /request/ which
+   consists of more than one /call/ or /notification/ (they may be
+   mixed within the same /request/).
+
+* Wire Format
+  All messages in this protocol are to be formatted using a modified
+  form of [[http://cr.yp.to/proto/netstrings.txt][netstring]], hereafter called a /newtstring/. The format
+  consists of a UTF-8 encoded header, arbitrary data, and a
+  terminating character. The header is a string-formatted hexadecimal
+  number indicating how many byte of data there are, followed by a ':'
+  character. The terminating character is a newline ('\textbackslash
+  n') character. Note that the header must not contain a
+  Byte-Order-Mark (BOM).
+
+  The hexadecimal digits of the header should be uppercase, but
+  parsers should be prepared to handle lowercase digits as well. The
+  header must be the shortest possible representation of the number of
+  data bytes. This means leading '0's are not permitted, except in the
+  case of an empty string (0 bytes of data). An empty string is
+  represented by the three-character newtstring '0:\textbackslash n';
+  this is the only case where the header may contain a leading '0'.
+
+  As an example, the ascii string 'My very excellent mother' would be
+  encoded as the newtstring '18:My very excellent mother\textbackslash
+  n'.
+* Serialization Format
+  All messages constituting the protocol shall be serialized as UTF-8
+  encoded JSON objects. For the purposes of this protocol, a list or
+  array is considered to be a valid JSON object, as well as the formal
+  JSON 'object' type. As with the wire format, the UTF-8 encoded
+  JSON string must not contain a Byte-Order-Mark.
+
+  For the purposes of this specification, all object properties must
+  be treated case-insensitively (e.g. =id=, =ID=, and =iD= are all the
+  same property). It is an error to supply an object with two or more
+  properties that have the same name when treated case-insensitively,
+  even though the JSON specification allows duplicate property
+  names. Beware of parsers that allow this.
+* Protocol
+** Overview
+#TODO: what about empty request/response objects? is that an error?
+# Not for a send (meets the spec), but it is for a return (contradicts
+# the spec)
+   The MTGNet RPC protocol is a message-oriented protocol for invoking
+   methods on a remote service by exchanging messages with a
+   server.
+
+   To invoke remote methods, a client sends a request to the server. A
+   request includes zero or more invocation objects, each of which may
+   or may not generate a result (see Section \ref{notifications}). If
+   any of the invocations generates a result, the server will send a
+   response which includes one or more result objects. Note that
+   sending an empty request is not an error (it is simply a request
+   for zero method invocations), but receiving an empty response *is*
+   an error. If the request had calls that generated a response, their
+   results should be included in the response; if the request didn't
+   contain any such calls, the server should not generate a response
+   at all.
+
+   The protocol is transport-agnostic, though it was originally
+   designed with TCP in mind. Using a connection-oriented transport
+   enables some useful tricks, for example the technique described in
+   Section \ref{push_notifications}.
+** RPC Request/Response Object
+   The basic unit the RPC protocol is a Request Object. A Request
+   Object is simply a JSON array of Call Objects (see Section
+   \ref{call_objs}). Similarly, a Response Object is a JSON array of
+   Result Objects (see Section \ref{result_objs}).
+** RPC Call Object
+#<<call_objs>>
+   Each RPC Call Object represents one invocation of an RPC method. An
+   RPC Call Object is a JSON object with the properties listed in
+   Table \ref{tab:rpc_call_obj}.
+#+CAPTION: RPC Call Object properties
+#+LABEL: tab:rpc_call_obj
+#+ATTR_LaTeX: align=l|l|p{8cm}
+   | Property  | Type        | Description                                                                 |
+   |-----------+-------------+-----------------------------------------------------------------------------|
+   | Service   | String      | The name of the service that this RPC message is intended for.              |
+   | Method    | String      | The name of the method within the service that is to be called or notified. |
+   | Id        | any         | A session-unique id of this message (see also Section \ref{notifications}). |
+   | Args      | Array of any | The arguments to be passed as part of this RPC message.                     |
+
+
+   Note that the values of =Service= and =Method= must be treated
+   case-insensitively. Further, the service must not rely on any
+   property of =id= other than it's uniqueness. =Id= is not required
+   to be unique across the entire server, and must only be unique over
+   one session with a client, where the nature of 'session' is
+   determined by the server and transport medium[fn:3].
+** RPC Result Object
+#<<result_objs>>
+   Results from RPC method invocations are RPC Result Objects. An
+   RPC Result Object is a JSON object with the properties listed in
+   Table \ref{tab:rpc_result_obj}.
+#+CAPTION: RPC Result Object properties
+#+LABEL: tab:rpc_result_obj
+#+ATTR_LaTeX: align=l|p{3cm}|p{8cm}
+   | Property | Type                      | Description                                                                                                                                                    |
+   |----------+---------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+   | Id       | any                       | An id matching the id property of the Call Object this is a result for.                                                                                        |
+   | Data     | any                       | The return value of the method invocation. When an error has occurred, this value may be the JSON value =Null=, or omitted.                                    |
+   | Error    | Condition Object          | An object representing an error during method invocation. This property may be either the JSON value =Null= or omitted if there was no error during invocation |
+   | Warnings | Array of Condition Object | A list of warnings generated by the method invocation. This field may be =Null= or omitted.                                                                    |
+
+   While not formally specified, the distinction between a warning and
+   an error is typically that errors require the execution of the
+   method to halt (the error-handling mechanism may later resume
+   execution, but execution cannot continue without outside
+   intervention). A warning, on the other hand, is a condition where
+   execution is able to proceed without outside intervention.
+
+   It as an error for a result object have both =Error= and =Data=
+   properties present and not =Null=. However, we recommend that
+   implementors treat the =Error= property as authoritative in the
+   interest of robustness.
+** RPC Condition Object
+   Exceptional situations during RPC method invocation are represented
+   by RPC Condition Objects. An exceptional situation may or may not
+   require the execution of the method to halt. An RPC Condition Object is
+   a JSON object with the properties listed in Table \ref{tab:rpc_condition_obj}.
+#+CAPTION: RPC Condition Object properties
+#+LABEL: tab:rpc_condition_obj
+#+ATTR_LaTeX: align=l|l|p{8cm}
+   | Property | Type   | Description                                                  |
+   |----------+--------+--------------------------------------------------------------|
+   | Message  | String | A human-readable error message.                              |
+   | Data     | Any    | Arbitrary data associated with the error.                    |
+   | Code     | Any    | A machine-readable, unique value identifying the error type. |
+
+   Note that since =code= uniquely identifies an error, and since it
+   makes little sense to have the same error message for two distinct
+   errors, =code= and =data= should have a one-to-many (error messages
+   may contain values specific to the error instance) or one-to-one
+   correspondence.
+
+** RPC Calls
+   An RPC Call is a method invocation that is expected to return a
+   value to the caller. Every RPC Call will generate a Result
+   Object, subject to the caveats in Section \ref{error_handling}.
+** RPC Notification
+#<<notifications>>
+   There are some occasions where a client wishes to send a message to
+   a server that is not expected to generate a return value. Rather
+   than sending a result to be discarded, the protocol allows the use
+   of RPC Notifications. An RPC Notification is simply a method
+   invocation that does not generate a result. An RPC Notification
+   message is identical to an RPC Call message, except that the
+   message's =Id= property is set to the JSON value =Null= or omitted.
+
+** Server-side Notifications
+#<<push_notifications>>
+   The protocol does not currently specify a mechanism for servers to
+   notify clients other than responding to an RPC Call. Unlike HTTP,
+   responses aren't intended to be streamed, which makes implementing
+   the traditional long-polling technique difficult.
+
+   While not formally specified or recommended by us, there is a
+   useful technique that can be used to implement this behavior on
+   connection-oriented mediums. A client sends a message to the
+   service indicating that it wants to receive events, the service
+   responds with a unique token. The client makes an additional
+   connection to the server, and sends a message to the service
+   containing the token. On receipt of the token, the server hands
+   that connection off to an alternate processing routine: in this
+   case, one that will send notification messages to the client over
+   that connection.
+
+   This technique can also be used to implement file transfers or
+   other operations that send data which does not serialize to JSON
+   well, to enable optional encryption of traffic, or for managing
+   access to non-RPC services (e.g. using RPC methods to authenticate
+   before being forwarded off to an FTP server).
+** Response ordering
+   The RPC protocol makes no guarantees about the ordering of
+   responses to method invocations. Servers are free to return
+   responses in whatever order they please, and clients are
+   responsible for matching results to calls by matching the =Id=
+   fields of the respective objects.
+
+   Allowing responses to come out of order places more processing
+   burden on clients, but allows methods to be called in an
+   asynchronous manner. A client may still produce synchronous
+   behavior by, for example, waiting for a response before sending
+   another message.
+** RPC Batch Call
+   For convenience, the protocol allows clients to send multiple RPC
+   Call Objects in an single array. The protocol guarantees that all
+   results for these RPC Call Objects will be returned in the same
+   response, and thus at the same time. Note, though, that the
+   ordering of Result Objects within a response is still not
+   specified.
+** Error Handling
+#<<error_handling>>
+   When an error occurs during method invocation, the Result Object
+   contains a Condition Object in its =Error= property. The Error object
+   contains a human-readable description of the error, a
+   machine-readable identifier for the error, and field for arbitrary
+   data associated with the error. Beyond the intended use of these
+   fields, their semantics are left unspecified, and each
+   implementation of the protocol may use them in different ways.
+
+   Since the protocol is connectionless with regard to services, most
+   errors above the method level are also supported by this
+   mechanism. Attempting to invoke a method of a service that does not
+   exist, for example, is nearly identical to invoking a method that
+   does not exist (in fact, they are equivalent if methods are treated
+   as a (service, method) pair).
+
+   Any errors that cannot be handled this way may result in the
+   connection being forcibly closed if the transport medium is
+   connection-oriented. There are several classes of errors that fall
+   into this category, including those where an invalid Call Object
+   does not contain an =Id= for an error result, where a newtstring
+   sent by the client does not contain valid JSON, or where the
+   clients data stream has become corrupt[fn:2]. In these cases, a
+   server may attempt to perform some form of error-correction
+   (including dropping invalid objects or attempting to re-synchronize
+   a newtstring stream), or may forcibly close the connection. Closing
+   the connection is required in the case where an error is not
+   recoverable, in order to prevent servers or clients from
+   languishing in error states.
+
+   This protocol is versioned, and in the future incompatible changes
+   to the protocol may be made. There are provisions for handling
+   protocol version differences (see Section \ref{mand_methods}), but
+   clients may not always abide by the rules. In the case of errors
+   caused by mismatched protocol versions, the server may handle the
+   error as in the previous paragraph, however we recommend that a
+   server return an error indicating the version mismatch where
+   possible.
+
+   More complex error schemes, such as an out-of-band error channel,
+   may be layered on top of this mechanism to provide better handling
+   where necessary (for example using the technique described in
+   Section \ref{push_notifications}).
+* Mandatory Services
+** System
+   Every server must implement a service called =System=, which is
+   used to communicate with the server itself (as opposed to the
+   services it hosts). This service must implement three methods, as
+   well as those described in Section \ref{mand_methods}.
+
+   The =services= method takes no arguments, and returns an array of
+   strings. Each string is the name of a valid service hosted on this
+   server.
+
+   The =describeService= method takes one argument, a string naming a
+   service to be described, and returns an object with the properties
+   listed in Table \ref{tab:service_desc_obj}.
+#+ATTR_LaTeX: align=l|l|p{8cm}
+#+CAPTION: Service Description properties
+#+LABEL: tab:service_desc_obj
+   | Property    | Type            | Description                                                         |
+   |-------------+-----------------+---------------------------------------------------------------------|
+   | product     | String          | A human-readable name of the product (e.g. "Mr. Bob's FTP Service") |
+   | authors     | Array of String | A list of the names of the authors of this service.                 |
+   | description | String          | A human-readable description of the service.                        |
+
+   The =rpcVersion= method takes no arguments and returns a version
+   object describing the version of the protocol this server
+   speaks. The object has the properties listed in Table \ref{tab:ver_info_obj}.
+#+ATTR_LaTeX: align=l|l|p{8cm}
+#+CAPTION: RPC Version Information properties
+#+LABEL: tab:ver_info_obj
+   | Property | Type    | Description          |
+   |----------+---------+----------------------|
+   | major    | Integer | Major version number |
+   | minor    | Integer | Minor version number |
+   | type     | String  | "draft" or "final"   |
+   | revision | Integer | Revision number      | 
+* Mandatory Methods
+#<<mand_methods>>
+  Every service must implement a certain set of methods. These methods
+  allow clients to determine what functionality is available and
+  verify compatibility between clients and servers, and provide useful
+  information for administrators.
+** Methods
+   The =methods= method takes no arguments, and returns an array of
+   (string) method names available in the service. This allows clients
+   to dynamically determine what methods are available to call. Unlike
+   the =services= method of the =System= service, this list is not
+   permitted to change arbitrarily at any time. Any method present in
+   the list returned by =services= must remain in the list for the
+   duration of that service's lifetime. Adding items to this list
+   dynamically is permissible, as it is unlikely to interfere with
+   clients. Clients should treat the result of this call as a set,
+   rather than an ordered list.
+** DescribeMethod
+   The =describeMethod= method takes a method name as an argument, and
+   returns a description object for that method. A description object
+   contains at least the properties listed in Tabl \ref{tab:method_desc_obj}.
+#+ATTR_LaTeX: align=l|l|p{8cm}
+#+CAPTION: Method Description properties
+#+LABEL: tab:method_desc_obj
+   | Property       | Type   | Description                                                            |
+   |----------------+--------+------------------------------------------------------------------------|
+   | Doc            | String | A human-readable docstring describing the method.                      |
+   | returnTypespec | Null   | An object used to programmatically check the types of return values    |
+   | argTypespec    | Null   | An object used to programmatically check the types of method arguments |
+   | conditionCodes | Null   | A list of condition codes that may occur when invoking this method.    |
+
+   The =returnTypespec=, =argTypespec=, and =conditionCodes fields are
+   not used in this version of the protocol, and implementations may
+   omit them. The names are reserved for future use, and
+   implementations must set the value to Null if they are supplied.
+** Version
+   The =version= method returns a value describing the version of the
+   service, rather than the version of the protocol it speaks. The
+   object has the properties listed in Table \ref{tab:svc_ver_info}.
+#+ATTR_LaTeX: align=l|l|p{8cm}
+#+CAPTION: Service Version Information properties
+#+LABEL: tab:svc_ver_info
+   | Property | Type    | Description                                                                                                                                      |
+   |----------+---------+--------------------------------------------------------------------------------------------------------------------------------------------------|
+   | code     | Integer | A machine-readable version number. This number must increase when the service's application protocol (not the RPC protocl) or interface changes. |
+   | name     | String  | A human-readable name for the version (typically a "major.minor.release" string or a date)                                                        |
+
+   This method is used to allow developers and clients to determine
+   version-specific behavior of services if necessary. Clients should
+   use =code= to check whether a service is within the range of
+   versions that the client can communicate with.
+* Footnotes
+[fn:2] The newtstring format has a limited ability for error
+  correction, at the expense of dropping some data. One approach to
+  re-synchronization of a newtstring stream is to ignore data until
+  reading a newline on error.
+
+[fn:3] The technical requirement is that =id= be unique over the set
+  of in-flight request between a server and a particular client. On
+  connection-oriented transports, a connection is a convenient window
+  for uniqueness that meets this property.
+
+* COMMENT TODO Things to get added
+  - add exception list to describemethod (reserve the property name)

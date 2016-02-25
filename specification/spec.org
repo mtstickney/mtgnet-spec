@@ -211,16 +211,16 @@
    responses aren't intended to be streamed, which makes implementing
    the traditional long-polling technique difficult.
 
-   While not formally specified or recommended by us, there is a
-   useful technique that can be used to implement this behavior on
-   connection-oriented mediums. A client sends a message to the
-   service indicating that it wants to receive events, the service
-   responds with a unique token. The client makes an additional
-   connection to the server, and sends a message to the service
-   containing the token. On receipt of the token, the server hands
-   that connection off to an alternate processing routine: in this
-   case, one that will send notification messages to the client over
-   that connection.
+   While not formally specified or recommended by this specification,
+   there is a useful technique that can be used to implement this
+   behavior on connection-oriented mediums. A client sends a message
+   to the service indicating that it wants to receive events, the
+   service responds with a unique token. The client makes an
+   additional connection to the server, and sends a message to the
+   service containing the token. On receipt of the token, the server
+   hands that connection off to an alternate processing routine: in
+   this case, one that will send notification messages to the client
+   over that connection.
 
    This technique can also be used to implement file transfers or
    other operations that send data which does not serialize to JSON

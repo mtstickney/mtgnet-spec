@@ -10,7 +10,7 @@
 * Typographical conventions
   In this specification, we represent literal values in single quotes,
   and represent non-printing characters with the traditional backslash
-  escapes as used in =printf(1)=. Thus '\textbackslash n' is a one-character literal
+  escapes as used in =printf(1)=. Thus '\n' is a one-character literal
   consisting of the newline character (LF, or linefeed).
 * Terminology
 ** Server
@@ -56,26 +56,25 @@
 
 * Wire Format
   All messages in this protocol are to be formatted using a modified
-  form of [[http://cr.yp.to/proto/netstrings.txt][netstring]], hereafter called a /netstring+ string/. The format
-  consists of a UTF-8 encoded header, arbitrary data, and a
+  form of [[http://cr.yp.to/proto/netstrings.txt][netstring]], hereafter called a /netstring+ string/. The
+  format consists of a UTF-8 encoded header, arbitrary data, and a
   terminating character. The header is a string-formatted hexadecimal
   number indicating how many byte of data there are, followed by a ':'
-  character. The terminating character is a newline ('\textbackslash
-  n') character. Note that the header must not contain a
-  Byte-Order-Mark (BOM).
+  character. The terminating character is a newline ('\n')
+  character. Note that the header must not contain a Byte-Order-Mark
+  (BOM).
 
   The hexadecimal digits of the header should be uppercase, but
   parsers should be prepared to handle lowercase digits as well. The
   header must be the shortest possible representation of the number of
   data bytes. This means leading '0's are not permitted, except in the
   case of an empty string (0 bytes of data). An empty string is
-  represented by the three-character netstring+ string
-  '0:\textbackslash n'; this is the only case where the header may
-  contain a leading '0'.
+  represented by the three-character netstring+ string '0:\n'; this is
+  the only case where the header may contain a leading '0'.
 
   As an example, the ascii string 'My very excellent mother' would be
-  encoded as the netstring+ string '18:My very excellent
-  mother\textbackslash n'.
+  encoded as the netstring+ string '18:My very excellent mother\n'.
+
 * Serialization Format
   All messages constituting the protocol shall be serialized as UTF-8
   encoded JSON objects. For the purposes of this protocol, a list or

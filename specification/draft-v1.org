@@ -56,7 +56,7 @@
 
 * Wire Format
   All messages in this protocol are to be formatted using a modified
-  form of [[http://cr.yp.to/proto/netstrings.txt][netstring]], hereafter called a /newtstring/. The format
+  form of [[http://cr.yp.to/proto/netstrings.txt][netstring]], hereafter called a /netstring+ string/. The format
   consists of a UTF-8 encoded header, arbitrary data, and a
   terminating character. The header is a string-formatted hexadecimal
   number indicating how many byte of data there are, followed by a ':'
@@ -69,12 +69,13 @@
   header must be the shortest possible representation of the number of
   data bytes. This means leading '0's are not permitted, except in the
   case of an empty string (0 bytes of data). An empty string is
-  represented by the three-character newtstring '0:\textbackslash n';
-  this is the only case where the header may contain a leading '0'.
+  represented by the three-character netstring+ string
+  '0:\textbackslash n'; this is the only case where the header may
+  contain a leading '0'.
 
   As an example, the ascii string 'My very excellent mother' would be
-  encoded as the newtstring '18:My very excellent mother\textbackslash
-  n'.
+  encoded as the netstring+ string '18:My very excellent
+  mother\textbackslash n'.
 * Serialization Format
   All messages constituting the protocol shall be serialized as UTF-8
   encoded JSON objects. For the purposes of this protocol, a list or
@@ -263,12 +264,12 @@
    connection being forcibly closed if the transport medium is
    connection-oriented. There are several classes of errors that fall
    into this category, including those where an invalid Call Object
-   does not contain an =Id= for an error result, where a newtstring
-   sent by the client does not contain valid JSON, or where the
+   does not contain an =Id= for an error result, where a netstring+
+   string sent by the client does not contain valid JSON, or where the
    clients data stream has become corrupt[fn:2]. In these cases, a
    server may attempt to perform some form of error-correction
    (including dropping invalid objects or attempting to re-synchronize
-   a newtstring stream), or may forcibly close the connection. Closing
+   a netstring+ stream), or may forcibly close the connection. Closing
    the connection is required in the case where an error is not
    recoverable, in order to prevent servers or clients from
    languishing in error states.
@@ -373,9 +374,9 @@
    use =code= to check whether a service is within the range of
    versions that the client can communicate with.
 * Footnotes
-[fn:2] The newtstring format has a limited ability for error
+[fn:2] The netstring+ format has a limited ability for error
   correction, at the expense of dropping some data. One approach to
-  re-synchronization of a newtstring stream is to ignore data until
+  re-synchronization of a netstring+ stream is to ignore data until
   reading a newline on error.
 
 [fn:3] The technical requirement is that =id= be unique over the set

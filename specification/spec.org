@@ -143,7 +143,7 @@
    property of =id= other than it's uniqueness. =Id= is not required
    to be unique across the entire server, and need only be unique over
    one session with a client, where the nature of 'session' is
-   determined by the server and transport medium[fn:3].
+   determined by the server and transport medium[fn:2].
 ** RPC Result Object
 #<<result_objs>>
    Results from RPC method invocations are RPC Result Objects. An
@@ -269,7 +269,7 @@
    into this category, including those where an invalid Call Object
    does not contain an =Id= for an error result, where a netstring+
    string sent by the client does not contain valid JSON, or where the
-   clients data stream has become corrupt[fn:2]. In these cases, a
+   clients data stream has become corrupt[fn:1]. In these cases, a
    server may attempt to perform some form of error-correction
    (including dropping invalid objects or attempting to re-synchronize
    a netstring+ stream), or may forcibly close the connection. Closing
@@ -377,12 +377,12 @@
    use =code= to check whether a service is within the range of
    versions that the client can communicate with.
 * Footnotes
-[fn:2] The netstring+ format has a limited ability for error
+[fn:1] The netstring+ format has a limited ability for error
   correction, at the expense of dropping some data. One approach to
   re-synchronization of a netstring+ stream is to ignore data until
   reading a newline on error.
 
-[fn:3] The technical requirement is that =id= be unique over the set
+[fn:2] The technical requirement is that =id= be unique over the set
   of in-flight request between a server and a particular client. On
   connection-oriented transports, a connection is a convenient window
   for uniqueness that meets this property.

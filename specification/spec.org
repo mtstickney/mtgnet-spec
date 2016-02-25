@@ -356,9 +356,9 @@
    | argTypespec    | Null   | An object used to programmatically check the types of method arguments |
    | conditionCodes | Null   | A list of condition codes that may occur when invoking this method.    |
 
-   The =returnTypespec=, =argTypespec=, and =conditionCodes fields are
-   not used in this version of the protocol, and implementations may
-   omit them. The names are reserved for future use, and
+   The =returnTypespec=, =argTypespec=, and =conditionCodes= fields
+   are not used in this version of the protocol, and implementations
+   may omit them. The names are reserved for future use, and
    implementations must set the value to Null if they are supplied.
 ** Version
    The =version= method returns a value describing the version of the
@@ -369,7 +369,7 @@
 #+LABEL: tab:svc_ver_info
    | Property | Type    | Description                                                                                                                                      |
    |----------+---------+--------------------------------------------------------------------------------------------------------------------------------------------------|
-   | code     | Integer | A machine-readable version number. This number must increase when the service's application protocol (not the RPC protocl) or interface changes. |
+   | code     | Integer | A machine-readable version number. This number must increase when the service's application protocol (not the RPC protocol) or interface changes. |
    | name     | String  | A human-readable name for the version (typically a "major.minor.release" string or a date)                                                        |
 
    This method is used to allow developers and clients to determine

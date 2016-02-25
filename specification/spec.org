@@ -7,6 +7,10 @@
   variety of transports. This specification describes the wire format,
   serialization format, message contents, mandatory features, and
   implementation semantics for the protocol.
+* Status
+  This specification is currently in =draft= status.
+* Version
+  The current version of the specification is =v1.0.0-draft.1=.
 * Typographical conventions
   In this specification, we represent literal values in single quotes,
   and represent non-printing characters with the traditional backslash

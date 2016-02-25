@@ -141,7 +141,7 @@
    Note that the values of =Service= and =Method= must be treated
    case-insensitively. Further, the service must not rely on any
    property of =id= other than it's uniqueness. =Id= is not required
-   to be unique across the entire server, and must only be unique over
+   to be unique across the entire server, and need only be unique over
    one session with a client, where the nature of 'session' is
    determined by the server and transport medium[fn:3].
 ** RPC Result Object
